@@ -4,10 +4,13 @@ import { PineconeStore } from 'langchain/vectorstores';
 import { pinecone } from '@/utils/pinecone-client';
 import { CustomPDFLoader } from '@/utils/customPDFLoader';
 import { PINECONE_INDEX_NAME, PINECONE_NAME_SPACE } from '@/config/pinecone';
-import { DirectoryLoader } from 'langchain/document_loaders';
+import { DirectoryLoader, CSVLoader } from 'langchain/document_loaders';
+
+import fs from 'fs';
+import { join } from 'path';
 
 /* Name of directory to retrieve your files from */
-const filePath = 'docs';
+const filePath = 'docs/macys';
 
 export const run = async () => {
   try {
@@ -19,19 +22,28 @@ export const run = async () => {
     // const loader = new PDFLoader(filePath);
     const rawDocs = await directoryLoader.load();
 
-    /* Split text into chunks */
-    const textSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1000,
-      chunkOverlap: 200,
-    });
+    const files = fs.readdirSync(filePath); // read directory contents
+    const csvFiles = files.filter(file => file.endsWith('.csv')); // filter out non-CSV files
 
-    const docs = await textSplitter.splitDocuments(rawDocs);
-    console.log('split docs', docs);
+    const loaders = csvFiles.map(file => new CSVLoader(join(filePath, file))); // create a CSVLoader for each CSV file
+    const rawCSVs = await Promise.all(loaders.map(loader => loader.load())); // load all CSV files in parallel
+    const docs = rawCSVs.reduce((acc, curr) => acc.concat(curr), []);
 
-    console.log('creating vector store...');
+    console.log('raw CSV: ', docs);
+
+    /* Split text into chunks - ! CSV loader already split rows into separate docs*/
+    // const textSplitter = new RecursiveCharacterTextSplitter({
+    //   chunkSize: 1000,
+    //   chunkOverlap: 0,
+    // });
+    //
+    // const docs = await textSplitter.splitDocuments(rawCSVs);
+    // console.log('split CSV: ', docs);
+
     /*create and store the embeddings in the vectorStore*/
+    console.log('creating vector store...');
     const embeddings = new OpenAIEmbeddings();
-    const index = pinecone.Index(PINECONE_INDEX_NAME); //change to your own index name
+    const index = pinecone.Index(PINECONE_INDEX_NAME);
 
     //embed the PDF documents
     await PineconeStore.fromDocuments(docs, embeddings, {
