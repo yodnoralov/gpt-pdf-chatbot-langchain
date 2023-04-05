@@ -39,7 +39,7 @@ export const makeChain = (
         ? CallbackManager.fromHandlers({
             async handleLLMNewToken(token) {
               onTokenStream(token);
-              console.log(token);
+              //console.log(token);
             },
           })
         : undefined,
@@ -51,7 +51,7 @@ export const makeChain = (
     vectorstore,
     combineDocumentsChain: docChain,
     questionGeneratorChain: questionGenerator,
-    returnSourceDocuments: true,
+    returnSourceDocuments: false,
     k: 500, //number of source documents to return
   });
 };
